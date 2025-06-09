@@ -8,7 +8,7 @@
  * permettant de gérer les pneus d'un garage. Les données sont persistantes
  * grâce à une base de données MongoDB.
  *
- * NOUVELLE VERSION : Ajout de la possibilité de réserver un rack à une marque.
+ * NOUVELLE VERSION : Passage à puppeteer-core pour la compatibilité avec Render.
  *
  * Fonctionnalités :
  * - Connexion utilisateur.
@@ -19,30 +19,28 @@
  * - Placement automatique qui respecte les réservations de marque.
  * - Recherche et suppression.
  *
- * Instructions pour démarrer :
- * 1. Assurez-vous d'avoir Node.js et MongoDB installés.
- * 2. Enregistrez ce fichier sous `server.js`.
- * 3. Dans le terminal, exécutez :
+ * Instructions pour démarrer et déployer sur Render :
+ * 1. Dans le terminal, exécutez :
  * npm init -y
- * npm install express mongoose dotenv puppeteer cors
- * 4. Créez un fichier `.env` et ajoutez votre chaîne de connexion MongoDB :
- * MONGO_URI=mongodb://localhost:27017/garage-pneu
- * 5. Lancez le serveur avec :
- * node server.js
+ * npm install express mongoose dotenv puppeteer-core cors
+ * 2. Créez un fichier `.env` et ajoutez votre chaîne de connexion MongoDB :
+ * MONGO_URI=mongodb://...
+ * 3. Sur Render, ajoutez le Buildpack : https://github.com/jontewks/puppeteer-heroku-buildpack
+ * 4. Lancez le serveur.
  *
  */
 
 const express = require('express');
 const mongoose = require('mongoose');
-const puppeteer = require('puppeteer');
-const cors = require('cors'); // Ajout de CORS
+const puppeteer = require('puppeteer-core'); // MODIFIÉ: Utilisation de puppeteer-core
+const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000; // Utiliser le port de Render
 
 // --- Middlewares ---
-app.use(cors()); // Activation de CORS pour autoriser les requêtes du frontend
+app.use(cors());
 app.use(express.json());
 
 // --- Connexion à MongoDB ---
@@ -56,7 +54,7 @@ mongoose.connect(process.env.MONGO_URI, {
     process.exit(1);
 });
 
-// --- Schémas Mongoose (MISE À JOUR) ---
+// --- Schémas Mongoose ---
 
 const userSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
@@ -67,7 +65,7 @@ const rackSchema = new mongoose.Schema({
     name: { type: String, required: true },
     totalWidth: { type: Number, required: true },
     isDouble: { type: Boolean, default: false },
-    reservedForBrand: { type: String, trim: true, uppercase: true, default: null }, // NOUVEAU CHAMP
+    reservedForBrand: { type: String, trim: true, uppercase: true, default: null },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 });
 
@@ -115,14 +113,11 @@ const authenticate = async (req, res, next) => {
 async function getEprelData(eprelCode) {
     if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
     let browser = null;
-    let page; // Déclarée ici pour être accessible dans le bloc catch
     try {
         console.log(`Scraping des données pour EPREL ${eprelCode} avec Puppeteer...`);
         const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
         
-        // Options de lancement robustes pour les environnements de déploiement (Render, Heroku, etc.)
         const launchOptions = {
-            headless: true,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -133,15 +128,13 @@ async function getEprelData(eprelCode) {
                 '--single-process',
                 '--disable-gpu'
             ],
+            headless: true,
+            // MODIFIÉ: Utilisation du chemin fourni par le buildpack de Render
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
         };
 
-        // Sur Render, le buildpack configure cette variable d'environnement
-        if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-            launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-        }
-
         browser = await puppeteer.launch(launchOptions);
-        page = await browser.newPage();
+        const page = await browser.newPage();
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36');
 
         await page.goto(url, { waitUntil: 'networkidle0' });
@@ -179,11 +172,7 @@ async function getEprelData(eprelCode) {
         eprelDataCache[eprelCode] = tireInfo;
         return tireInfo;
     } catch (error) {
-        console.error(`Erreur majeure de scraping pour ${eprelCode}:`, error.message);
-        // Si la page a été chargée, logguer son contenu peut aider à voir s'il y a un CAPTCHA ou une page d'erreur.
-        if (page) {
-            console.error('La page a peut-être été bloquée ou a affiché une erreur.');
-        }
+        console.error(`Erreur majeure de scraping pour ${eprelCode}:`, error);
         return null;
     } finally {
         if (browser) await browser.close();
@@ -250,17 +239,13 @@ app.post('/tires', authenticate, async (req, res) => {
 
     try {
         const tireData = await getEprelData(eprelCode);
-        if (!tireData) return res.status(404).json({ message: `Infos non trouvées pour EPREL ${eprelCode}.` });
+        if (!tireData) return res.status(404).json({ message: `Infos non trouvées pour EPREL ${eprelCode}. Le scraping a peut-être échoué.` });
 
         const userRacks = await Rack.find({ userId: req.user._id });
         const storedTires = await Tire.find({ userId: req.user._id, location: { $ne: null } });
         let foundLocation = null;
-
         const tireBrandUpper = tireData.brand.toUpperCase();
-        
-        const eligibleRacks = userRacks.filter(rack => 
-            !rack.reservedForBrand || rack.reservedForBrand === tireBrandUpper
-        );
+        const eligibleRacks = userRacks.filter(rack => !rack.reservedForBrand || rack.reservedForBrand === tireBrandUpper);
 
         for (const rack of eligibleRacks.filter(r => r.isDouble)) {
             const frontTiresOfSameType = storedTires.filter(t => t.location.rackId.equals(rack._id) && t.location.row === 'front' && t.eprelCode === eprelCode);
@@ -323,6 +308,6 @@ app.delete('/tires/:id', authenticate, async (req, res) => {
 
 // --- Démarrage du Serveur ---
 app.listen(PORT, () => {
-    console.log(`Serveur démarré sur http://localhost:${PORT}`);
+    console.log(`Serveur démarré sur le port ${PORT}`);
     console.log('Connecté à la base de données MongoDB.');
 });

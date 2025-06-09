@@ -110,15 +110,40 @@ const authenticate = async (req, res, next) => {
         res.status(401).json({ message: 'Accès non autorisé.' });
     }
 };
-// --- Service de Scraping ---
+
+// --- Service de Scraping (MISE À JOUR POUR DÉPLOIEMENT) ---
 async function getEprelData(eprelCode) {
     if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
     let browser = null;
+    let page; // Déclarée ici pour être accessible dans le bloc catch
     try {
         console.log(`Scraping des données pour EPREL ${eprelCode} avec Puppeteer...`);
         const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
-        browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-        const page = await browser.newPage();
+        
+        // Options de lancement robustes pour les environnements de déploiement (Render, Heroku, etc.)
+        const launchOptions = {
+            headless: true,
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--no-first-run',
+                '--no-zygote',
+                '--single-process',
+                '--disable-gpu'
+            ],
+        };
+
+        // Sur Render, le buildpack configure cette variable d'environnement
+        if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+            launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+        }
+
+        browser = await puppeteer.launch(launchOptions);
+        page = await browser.newPage();
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36');
+
         await page.goto(url, { waitUntil: 'networkidle0' });
 
         const scrapedData = await page.evaluate(() => {
@@ -134,7 +159,10 @@ async function getEprelData(eprelCode) {
         });
         
         const { dimension: sizeString, nom: model, marque: brand } = scrapedData;
-        if (!brand || !sizeString) return null;
+        if (!brand || !sizeString) {
+            console.error(`Sélecteurs non trouvés pour EPREL ${eprelCode}. La structure de la page a peut-être changé.`);
+            return null;
+        }
 
         const sizeMatch = sizeString.match(/(\d+)\/(\d+)\s*R\s*(\d+)/);
         if (!sizeMatch) return null;
@@ -151,12 +179,17 @@ async function getEprelData(eprelCode) {
         eprelDataCache[eprelCode] = tireInfo;
         return tireInfo;
     } catch (error) {
-        console.error(`Erreur de scraping pour ${eprelCode}:`, error.message);
+        console.error(`Erreur majeure de scraping pour ${eprelCode}:`, error.message);
+        // Si la page a été chargée, logguer son contenu peut aider à voir s'il y a un CAPTCHA ou une page d'erreur.
+        if (page) {
+            console.error('La page a peut-être été bloquée ou a affiché une erreur.');
+        }
         return null;
     } finally {
         if (browser) await browser.close();
     }
 }
+
 
 // --- Routes de l'API ---
 
@@ -178,10 +211,6 @@ app.post('/login', async (req, res) => {
     }
 });
 
-/**
- * POST /racks (MISE À JOUR)
- * Prend en compte la réservation de marque.
- */
 app.post('/racks', authenticate, async (req, res) => {
     const { name, totalWidth, isDouble, reservedForBrand } = req.body;
     try {
@@ -215,10 +244,6 @@ app.get('/racks', authenticate, async (req, res) => {
     }
 });
 
-/**
- * POST /tires (MISE À JOUR)
- * La logique de placement respecte les réservations de marque.
- */
 app.post('/tires', authenticate, async (req, res) => {
     const { eprelCode } = req.body;
     if (!eprelCode) return res.status(400).json({ message: 'Le code EPREL est requis.' });
@@ -233,12 +258,10 @@ app.post('/tires', authenticate, async (req, res) => {
 
         const tireBrandUpper = tireData.brand.toUpperCase();
         
-        // Filtrer les racks éligibles pour ce pneu
         const eligibleRacks = userRacks.filter(rack => 
             !rack.reservedForBrand || rack.reservedForBrand === tireBrandUpper
         );
 
-        // Stratégie 1: Derrière un pneu identique dans un rack éligible
         for (const rack of eligibleRacks.filter(r => r.isDouble)) {
             const frontTiresOfSameType = storedTires.filter(t => t.location.rackId.equals(rack._id) && t.location.row === 'front' && t.eprelCode === eprelCode);
             const backTiresOfSameType = storedTires.filter(t => t.location.rackId.equals(rack._id) && t.location.row === 'back' && t.eprelCode === eprelCode);
@@ -252,7 +275,6 @@ app.post('/tires', authenticate, async (req, res) => {
             }
         }
         
-        // Stratégie 2: En première rangée d'un rack éligible
         if (!foundLocation) {
             for (const rack of eligibleRacks) {
                 const occupiedWidthFront = storedTires.filter(t => t.location.rackId.equals(rack._id) && t.location.row === 'front').reduce((sum, t) => sum + t.width, 0);

@@ -32,59 +32,54 @@
  *
  */
 
+// server.js
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const puppeteer = require('puppeteer');
-const fs = require('fs');
-const path = require('path');
-const cors = require('cors'); // Ajout de CORS
-require('dotenv').config();
+const cors = require('cors');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// --- Middlewares ---
-app.use(cors()); // Activation de CORS pour autoriser les requêtes du frontend
+app.use(cors());
 app.use(express.json());
 
-// --- Connexion à MongoDB ---
 mongoose.connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
+  useNewUrlParser: true,
+  useUnifiedTopology: true
 }).then(() => {
-    console.log('Connexion à MongoDB réussie !');
+  console.log('Connexion à MongoDB réussie !');
 }).catch(err => {
-    console.error('Erreur de connexion à MongoDB:', err);
-    process.exit(1);
+  console.error('Erreur de connexion à MongoDB:', err);
+  process.exit(1);
 });
 
-// --- Schémas Mongoose (MISE À JOUR) ---
-
 const userSchema = new mongoose.Schema({
-    email: { type: String, required: true, unique: true },
-    password: { type: String, required: true }
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true }
 });
 
 const rackSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    totalWidth: { type: Number, required: true },
-    isDouble: { type: Boolean, default: false },
-    reservedForBrand: { type: String, trim: true, uppercase: true, default: null }, // NOUVEAU CHAMP
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+  name: { type: String, required: true },
+  totalWidth: { type: Number, required: true },
+  isDouble: { type: Boolean, default: false },
+  reservedForBrand: { type: String, trim: true, uppercase: true, default: null },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 });
 
 const tireSchema = new mongoose.Schema({
-    eprelCode: { type: String, required: true },
-    brand: { type: String, required: true },
-    model: { type: String },
-    width: { type: Number, required: true },
-    aspectRatio: { type: Number, required: true },
-    diameter: { type: Number, required: true },
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    location: {
-        rackId: { type: mongoose.Schema.Types.ObjectId, ref: 'Rack' },
-        row: { type: String, enum: ['front', 'back'] }
-    }
+  eprelCode: { type: String, required: true },
+  brand: { type: String, required: true },
+  model: { type: String },
+  width: { type: Number, required: true },
+  aspectRatio: { type: Number, required: true },
+  diameter: { type: Number, required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  location: {
+    rackId: { type: mongoose.Schema.Types.ObjectId, ref: 'Rack' },
+    row: { type: String, enum: ['front', 'back'] }
+  }
 });
 
 const User = mongoose.model('User', userSchema);
@@ -93,106 +88,77 @@ const Tire = mongoose.model('Tire', tireSchema);
 
 let eprelDataCache = {};
 
-// --- Middleware d'Authentification ---
 const authenticate = async (req, res, next) => {
-    const token = req.headers.authorization;
-    if (token === 'Bearer user1_token') {
-        try {
-            let user = await User.findOne({ email: 'garage@test.com' });
-            if (!user) {
-                user = new User({ email: 'garage@test.com', password: 'password123' });
-                await user.save();
-            }
-            req.user = user;
-            next();
-        } catch (error) {
-            res.status(500).json({ message: 'Erreur serveur lors de l\'authentification' });
-        }
-    } else {
-        res.status(401).json({ message: 'Accès non autorisé.' });
-    }
-};
-// --- Service de Scraping ---
-
-function getChromePath() {
-    const baseDir = '/opt/render/.cache/puppeteer/chrome/';
+  const token = req.headers.authorization;
+  if (token === 'Bearer user1_token') {
     try {
-        if (!fs.existsSync(baseDir)) {
-            console.warn("Chrome base dir not found:", baseDir);
-            return null;
-        }
-        const versions = fs.readdirSync(baseDir);
-        if (versions.length === 0) {
-            console.warn("No Chrome versions found in:", baseDir);
-            return null;
-        }
-        const latestVersion = versions.sort().pop();
-        const chromePath = path.join(baseDir, latestVersion, 'chrome-linux64', 'chrome');
-        if (!fs.existsSync(chromePath)) {
-            console.warn("Chrome binary not found at:", chromePath);
-            return null;
-        }
-        return chromePath;
-    } catch (e) {
-        console.error("Erreur pendant la détection de Chrome :", e);
-        return null;
+      let user = await User.findOne({ email: 'garage@test.com' });
+      if (!user) {
+        user = new User({ email: 'garage@test.com', password: 'password123' });
+        await user.save();
+      }
+      req.user = user;
+      next();
+    } catch (error) {
+      res.status(500).json({ message: 'Erreur serveur lors de l\'authentification' });
     }
-}
+  } else {
+    res.status(401).json({ message: 'Accès non autorisé.' });
+  }
+};
 
 async function getEprelData(eprelCode) {
-    if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
+  if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
+  let browser = null;
+  try {
+    const executablePath = puppeteer.executablePath();
+    console.log('➡️ Chemin Chrome :', executablePath);
 
-    let browser = null;
-    try {
-        const executablePath = puppeteer.executablePath();
-        console.log('➡️ Chrome détecté par Puppeteer :', executablePath);
+    browser = await puppeteer.launch({
+      headless: true,
+      executablePath,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
 
-        browser = await puppeteer.launch({
-            headless: true,
-            executablePath, // 🟢 ← obligatoire
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
+    const page = await browser.newPage();
+    const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
+    await page.goto(url, { waitUntil: 'networkidle0' });
 
-        const page = await browser.newPage();
-        const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
-        await page.goto(url, { waitUntil: 'networkidle0' });
+    const scrapedData = await page.evaluate(() => {
+      const boldSelector = '.ecl-u-type-bold.ecl-u-pl-l-xl.ecl-u-pr-2xs.ecl-u-type-align-right';
+      const marqueSelector = '.ecl-u-type-l.ecl-u-type-color-grey-75.ecl-u-type-family-alt';
+      const getText = (selector) => document.querySelector(selector)?.textContent.trim() || null;
+      const allBoldElements = document.querySelectorAll(boldSelector);
+      const allTexts = Array.from(allBoldElements, el => el.textContent.trim());
+      const dimension = allTexts.find(t => /\d+\/\d+\s*R\s*\d+/.test(t)) || null;
+      const nom = allTexts.find(t => t && !/\d+\/\d+\s*R\s*\d+/.test(t)) || null;
+      const marque = getText(marqueSelector);
+      return { dimension, nom, marque };
+    });
 
-        const scrapedData = await page.evaluate(() => {
-            const boldSelector = '.ecl-u-type-bold.ecl-u-pl-l-xl.ecl-u-pr-2xs.ecl-u-type-align-right';
-            const marqueSelector = '.ecl-u-type-l.ecl-u-type-color-grey-75.ecl-u-type-family-alt';
-            const getText = (selector) => document.querySelector(selector)?.textContent.trim() || null;
-            const allBoldElements = document.querySelectorAll(boldSelector);
-            const allTexts = Array.from(allBoldElements, el => el.textContent.trim());
-            const dimension = allTexts.find(t => /\d+\/\d+\s*R\s*\d+/.test(t)) || null;
-            const nom = allTexts.find(t => t && !/\d+\/\d+\s*R\s*\d+/.test(t)) || null;
-            const marque = getText(marqueSelector);
-            return { dimension, nom, marque };
-        });
+    const { dimension: sizeString, nom: model, marque: brand } = scrapedData;
+    if (!brand || !sizeString) return null;
 
-        const { dimension: sizeString, nom: model, marque: brand } = scrapedData;
-        if (!brand || !sizeString) return null;
+    const sizeMatch = sizeString.match(/(\d+)\/(\d+)\s*R\s*(\d+)/);
+    if (!sizeMatch) return null;
 
-        const sizeMatch = sizeString.match(/(\d+)\/(\d+)\s*R\s*(\d+)/);
-        if (!sizeMatch) return null;
+    const [, widthMm, aspectRatio, diameter] = sizeMatch;
+    const tireInfo = {
+      brand,
+      model: model || 'N/A',
+      width: parseFloat(widthMm) / 10,
+      aspectRatio: parseInt(aspectRatio, 10),
+      diameter: parseInt(diameter, 10)
+    };
 
-        const [, widthMm, aspectRatio, diameter] = sizeMatch;
-        const tireInfo = {
-            brand,
-            model: model || 'N/A',
-            width: parseFloat(widthMm) / 10,
-            aspectRatio: parseInt(aspectRatio, 10),
-            diameter: parseInt(diameter, 10),
-        };
-
-        eprelDataCache[eprelCode] = tireInfo;
-        return tireInfo;
-
-    } catch (error) {
-        console.error(`❌ Erreur de scraping pour ${eprelCode}:`, error.message);
-        return null;
-    } finally {
-        if (browser) await browser.close();
-    }
+    eprelDataCache[eprelCode] = tireInfo;
+    return tireInfo;
+  } catch (error) {
+    console.error(`❌ Erreur de scraping pour ${eprelCode}:`, error.message);
+    return null;
+  } finally {
+    if (browser) await browser.close();
+  }
 }
 
 // --- Routes de l'API ---

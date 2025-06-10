@@ -116,22 +116,24 @@ const authenticate = async (req, res, next) => {
 const CHROME_PATH = '/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome';
 
 async function getEprelData(eprelCode) {
-  if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
+    if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
 
-  let browser = null;
-  try {
-    console.log(`Scraping des données pour EPREL ${eprelCode} avec Puppeteer...`);
+    // 🧠 Le vrai chemin Chrome après postinstall
+    const CHROME_EXECUTABLE_PATH = '/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome';
 
-    browser = await puppeteer.launch({
-      headless: true,
-      executablePath: CHROME_PATH,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    let browser = null;
+    try {
+        console.log(`Scraping des données pour EPREL ${eprelCode} avec Puppeteer...`);
 
-    const page = await browser.newPage();
-    await page.goto(`https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`, {
-      waitUntil: 'networkidle0'
-    });
+        browser = await puppeteer.launch({
+            headless: true,
+            executablePath: CHROME_EXECUTABLE_PATH,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+
+        const page = await browser.newPage();
+        const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
+        await page.goto(url, { waitUntil: 'networkidle0' });
 
         const scrapedData = await page.evaluate(() => {
             const boldSelector = '.ecl-u-type-bold.ecl-u-pl-l-xl.ecl-u-pr-2xs.ecl-u-type-align-right';
@@ -144,13 +146,13 @@ async function getEprelData(eprelCode) {
             const marque = getText(marqueSelector);
             return { dimension, nom, marque };
         });
-        
+
         const { dimension: sizeString, nom: model, marque: brand } = scrapedData;
         if (!brand || !sizeString) return null;
 
         const sizeMatch = sizeString.match(/(\d+)\/(\d+)\s*R\s*(\d+)/);
         if (!sizeMatch) return null;
-        
+
         const [, widthMm, aspectRatio, diameter] = sizeMatch;
         const tireInfo = {
             brand,
@@ -162,6 +164,7 @@ async function getEprelData(eprelCode) {
 
         eprelDataCache[eprelCode] = tireInfo;
         return tireInfo;
+
     } catch (error) {
         console.error(`Erreur de scraping pour ${eprelCode}:`, error.message);
         return null;

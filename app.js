@@ -8,29 +8,41 @@
  * permettant de gérer les pneus d'un garage. Les données sont persistantes
  * grâce à une base de données MongoDB.
  *
- * NOUVELLE VERSION : Correction du bug "is not a function" pour le déploiement sur Render.
+ * NOUVELLE VERSION : Correction pour le déploiement sur Render avec puppeteer-core.
  *
  * =============================================================================
- * INSTRUCTIONS DE DÉPLOIEMENT SUR RENDER
+ * INSTRUCTIONS DE DÉPLOIEMENT SUR RENDER (TRÈS IMPORTANT - À LIRE ATTENTIVEMENT)
  * =============================================================================
- * 1. Fichier `package.json` :
- * Assurez-vous que les dépendances suivantes sont bien présentes :
+ * Les erreurs "Cannot find module" ou "_projectRoot is undefined" indiquent que
+ * l'environnement de déploiement n'est pas correctement configuré pour Puppeteer.
+ *
+ * Action 1: Configurez les variables d'environnement sur Render
+ * ----------------------------------------------------------------
+ * - Allez dans votre service sur Render, puis dans l'onglet "Environment".
+ * - Ajoutez une nouvelle variable d'environnement :
+ * - Clé (Key) : `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD`
+ * - Valeur (Value) : `true`
+ * - Cela empêchera Puppeteer de tenter un téléchargement qui échoue sur Render.
+ *
+ * Action 2: Vérifiez votre fichier `package.json`
+ * --------------------------------------------------
+ * Assurez-vous que votre fichier `package.json` contient TOUTES les dépendances
+ * suivantes, de préférence avec des versions récentes :
+ *
  * "dependencies": {
- * "@sparticuz/chrome-aws-lambda": "^17.1.0",
+ * "@sparticuz/chrome-aws-lambda": "^22.0.0",
  * "cors": "^2.8.5",
  * "dotenv": "^16.3.1",
  * "express": "^4.18.2",
- * "mongoose": "^7.5.0",
- * "puppeteer-core": "^17.1.0"
+ * "mongoose": "^8.0.0",
+ * "puppeteer-core": "^22.0.0"
  * }
  *
- * 2. Commande de build sur Render :
+ * Action 3: Configurez la commande de build sur Render
+ * --------------------------------------------------
  * - Dans les "Settings" > "Build & Deploy", la "Build Command" doit être : `npm install`
  *
- * 3. Buildpacks :
- * - Assurez-vous qu'aucun buildpack pour puppeteer n'est installé.
- *
- * Après avoir vérifié ces points, redéployez votre application.
+ * Après avoir vérifié ces 3 points, redéployez votre application.
  */
 
 const express = require('express');
@@ -113,7 +125,7 @@ const authenticate = async (req, res, next) => {
     }
 };
 
-// --- Service de Scraping (MISE À JOUR) ---
+// --- Service de Scraping ---
 async function getEprelData(eprelCode) {
     if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
     let browser = null;
@@ -121,11 +133,10 @@ async function getEprelData(eprelCode) {
         console.log(`Scraping des données pour EPREL ${eprelCode} avec @sparticuz/chrome-aws-lambda...`);
         const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
         
-        // CORRIGÉ : Appel correct à la propriété executablePath
         browser = await puppeteer.launch({
             args: sparticuz.args,
             defaultViewport: sparticuz.defaultViewport,
-            executablePath: await sparticuz.executablePath, // Pas de parenthèses ici
+            executablePath: await sparticuz.executablePath,
             headless: sparticuz.headless,
             ignoreHTTPSErrors: true,
         });

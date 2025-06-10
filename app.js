@@ -117,11 +117,11 @@ async function getEprelData(eprelCode) {
     try {
         console.log(`Scraping des données pour EPREL ${eprelCode} avec Puppeteer...`);
         const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
-        browser = await puppeteer.launch({
+    browser = await puppeteer.launch({
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        executablePath: await puppeteer.executablePath()
-        });
+        executablePath: puppeteer.executablePath() // 👈 très important
+    });
         const page = await browser.newPage();
         await page.goto(url, { waitUntil: 'networkidle0' });
 

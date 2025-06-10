@@ -8,7 +8,7 @@
  * permettant de gérer les pneus d'un garage. Les données sont persistantes
  * grâce à une base de données MongoDB.
  *
- * NOUVELLE VERSION : Utilisation de "chrome-aws-lambda" pour une compatibilité maximale.
+ * NOUVELLE VERSION : Débogage final pour le déploiement sur Render.
  *
  * =============================================================================
  * INSTRUCTIONS DE DÉPLOIEMENT SUR RENDER (TRÈS IMPORTANT - À LIRE ATTENTIVEMENT)
@@ -19,31 +19,26 @@
  * Action 1: Configurez votre variable d'environnement sur Render
  * ----------------------------------------------------------------
  * - Allez dans votre service sur Render, puis dans l'onglet "Environment".
- * - Assurez-vous d'avoir SEULEMENT UNE variable d'environnement pour Puppeteer :
+ * - Ajoutez UNE SEULE variable d'environnement :
  *
- * - Clé (Key)   : `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD`
- * - Valeur (Value) : `true`
+ * - Clé (Key)   : `PUPPETEER_CACHE_DIR`
+ * - Valeur (Value) : `/opt/render/project/src/.cache/puppeteer`
  *
- * - IMPORTANT : Si vous aviez ajouté une variable `PUPPETEER_CACHE_DIR`,
- * veuillez la SUPPRIMER. Elle entre en conflit avec le paquet utilisé.
+ * - IMPORTANT : Assurez-vous que la variable `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD`
+ * est bien SUPPRIMÉE si elle existe.
  *
  * Action 2: Mettez à jour votre fichier `package.json`
  * --------------------------------------------------
- * C'est l'étape la plus critique. Pour éviter l'erreur "ETARGET", nous allons
- * utiliser des versions spécifiques et compatibles. Assurez-vous que votre
- * `package.json` contient les dépendances avec les versions EXACTES ci-dessous.
+ * C'est l'étape la plus critique. Nous revenons à la version standard de "puppeteer".
+ * Le fichier doit contenir les dépendances suivantes.
  *
  * "dependencies": {
- * "chrome-aws-lambda": "10.1.0",
- * "puppeteer-core": "10.1.0",
+ * "puppeteer": "^22.0.0",
  * "cors": "^2.8.5",
  * "dotenv": "^16.3.1",
  * "express": "^4.18.2",
  * "mongoose": "^8.0.0"
  * }
- *
- * (Note: nous utilisons la version 10.1.0 pour ces deux paquets car leur
- * compatibilité est prouvée et stable).
  *
  * Action 3: Configurez la commande de build sur Render
  * --------------------------------------------------
@@ -57,9 +52,9 @@
 
 const express = require('express');
 const mongoose = require('mongoose');
-const puppeteer = require('puppeteer-core');
-const chrome = require('chrome-aws-lambda'); // MODIFIÉ: Utilisation du paquet 'chrome-aws-lambda'
+const puppeteer = require('puppeteer'); // MODIFIÉ: Utilisation du paquet 'puppeteer' standard
 const cors = require('cors');
+const fs = require('fs'); // Ajout du module File System pour la vérification
 require('dotenv').config();
 
 const app = express();
@@ -140,21 +135,21 @@ async function getEprelData(eprelCode) {
     if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
     let browser = null;
     try {
-        console.log(`Scraping des données pour EPREL ${eprelCode} avec chrome-aws-lambda...`);
+        console.log(`Scraping des données pour EPREL ${eprelCode} avec puppeteer standard...`);
         const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
         
-        const executablePath = await chrome.executablePath;
+        // Log de débogage pour vérifier le chemin
+        const executablePath = puppeteer.executablePath();
+        console.log(`[Puppeteer Debug] Chemin de l'exécutable attendu : ${executablePath}`);
         
-        if (!executablePath) {
-             throw new Error(`Le chemin de l'exécutable Chromium est introuvable. Le paquet 'chrome-aws-lambda' est-il correctement installé ?`);
+        if (!fs.existsSync(executablePath)) {
+            throw new Error(`Le fichier de l'exécutable n'existe pas au chemin attendu : ${executablePath}. Problème de build ou de cache sur Render. Vérifiez la variable d'environnement PUPPETEER_CACHE_DIR.`);
         }
-
+        
         browser = await puppeteer.launch({
-            args: chrome.args,
-            defaultViewport: chrome.defaultViewport,
-            executablePath: executablePath,
-            headless: chrome.headless,
-            ignoreHTTPSErrors: true,
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox'],
+            executablePath: executablePath // On spécifie explicitement le chemin
         });
 
         const page = await browser.newPage();
@@ -333,10 +328,4 @@ app.delete('/tires/:id', authenticate, async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Serveur démarré sur le port ${PORT}`);
     console.log('Connecté à la base de données MongoDB.');
-    try {
-        const pptrVersion = require('puppeteer-core/package.json').version;
-        console.log(`[Puppeteer] Version de puppeteer-core détectée : ${pptrVersion}`);
-    } catch (e) {
-        console.log('[Puppeteer] Impossible de lire la version de puppeteer-core.');
-    }
 });

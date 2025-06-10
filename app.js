@@ -108,21 +108,21 @@ const authenticate = async (req, res, next) => {
 };
 
 async function getEprelData(eprelCode) {
-  if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
-  let browser = null;
+  let browser;
   try {
-    const executablePath = puppeteer.executablePath();
+    const executablePath = puppeteer.executablePath(); // 👈 OBLIGATOIRE
     console.log('➡️ Chemin Chrome :', executablePath);
 
     browser = await puppeteer.launch({
       headless: true,
-      executablePath,
+      executablePath, // 👈 ICI aussi !
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
     const page = await browser.newPage();
-    const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
-    await page.goto(url, { waitUntil: 'networkidle0' });
+    await page.goto(`https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`, {
+      waitUntil: 'networkidle0'
+    });
 
     const scrapedData = await page.evaluate(() => {
       const boldSelector = '.ecl-u-type-bold.ecl-u-pl-l-xl.ecl-u-pr-2xs.ecl-u-type-align-right';

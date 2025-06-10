@@ -8,7 +8,7 @@
  * permettant de gérer les pneus d'un garage. Les données sont persistantes
  * grâce à une base de données MongoDB.
  *
- * NOUVELLE VERSION : Correction pour le déploiement sur Render avec puppeteer-core.
+ * NOUVELLE VERSION : Utilisation de @sparticuz/chrome-aws-lambda pour une compatibilité maximale avec Render.
  *
  * Fonctionnalités :
  * - Connexion utilisateur.
@@ -22,17 +22,18 @@
  * Instructions pour démarrer et déployer sur Render :
  * 1. Dans le terminal, exécutez :
  * npm init -y
- * npm install express mongoose dotenv puppeteer-core cors
+ * npm install express mongoose dotenv @sparticuz/chrome-aws-lambda puppeteer-core cors
  * 2. Créez un fichier `.env` et ajoutez votre chaîne de connexion MongoDB :
  * MONGO_URI=mongodb://...
- * 3. Sur Render, ajoutez le Buildpack : https://github.com/jontewks/puppeteer-heroku-buildpack
+ * 3. Assurez-vous qu'aucun buildpack puppeteer n'est installé sur Render.
  * 4. Lancez le serveur.
  *
  */
 
 const express = require('express');
 const mongoose = require('mongoose');
-const puppeteer = require('puppeteer-core'); // Utilisation de puppeteer-core
+const puppeteer = require('puppeteer-core');
+const sparticuz = require('@sparticuz/chrome-aws-lambda'); // NOUVEAU paquet
 const cors = require('cors');
 require('dotenv').config();
 
@@ -114,34 +115,21 @@ async function getEprelData(eprelCode) {
     if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
     let browser = null;
     try {
-        console.log(`Scraping des données pour EPREL ${eprelCode} avec Puppeteer...`);
+        console.log(`Scraping des données pour EPREL ${eprelCode} avec @sparticuz/chrome-aws-lambda...`);
         const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
         
-        const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-        
-        // Log de débogage pour voir ce que Render fournit
-        console.log(`[Puppeteer] Chemin de l'exécutable détecté : ${executablePath}`);
+        // Configuration pour utiliser le Chromium fourni par @sparticuz/chrome-aws-lambda
+        const executablePath = await sparticuz.executablePath();
+        console.log(`[Puppeteer] Chemin de l'exécutable : ${executablePath}`);
 
-        if (!executablePath) {
-            throw new Error("PUPPETEER_EXECUTABLE_PATH n'est pas défini. Assurez-vous que le buildpack est correctement configuré et actif.");
-        }
-
-        const launchOptions = {
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-accelerated-2d-canvas',
-                '--no-first-run',
-                '--no-zygote',
-                '--single-process',
-                '--disable-gpu'
-            ],
-            headless: true,
+        browser = await puppeteer.launch({
+            args: sparticuz.args,
+            defaultViewport: sparticuz.defaultViewport,
             executablePath: executablePath,
-        };
+            headless: sparticuz.headless,
+            ignoreHTTPSErrors: true,
+        });
 
-        browser = await puppeteer.launch(launchOptions);
         const page = await browser.newPage();
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36');
 

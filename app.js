@@ -8,21 +8,25 @@
  * permettant de gérer les pneus d'un garage. Les données sont persistantes
  * grâce à une base de données MongoDB.
  *
- * NOUVELLE VERSION : Correction pour le déploiement sur Render avec puppeteer-core.
+ * NOUVELLE VERSION : Correction finale pour le déploiement sur Render.
  *
  * =============================================================================
  * INSTRUCTIONS DE DÉPLOIEMENT SUR RENDER (TRÈS IMPORTANT - À LIRE ATTENTIVEMENT)
  * =============================================================================
- * Les erreurs "Cannot find module" ou "_projectRoot is undefined" indiquent que
- * l'environnement de déploiement n'est pas correctement configuré pour Puppeteer.
+ * L'erreur "_projectRoot is undefined" indique un problème de configuration
+ * de Puppeteer dans l'environnement de déploiement. Suivez ces étapes :
  *
  * Action 1: Configurez les variables d'environnement sur Render
  * ----------------------------------------------------------------
  * - Allez dans votre service sur Render, puis dans l'onglet "Environment".
- * - Ajoutez une nouvelle variable d'environnement :
- * - Clé (Key) : `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD`
- * - Valeur (Value) : `true`
- * - Cela empêchera Puppeteer de tenter un téléchargement qui échoue sur Render.
+ * - Ajoutez DEUX variables d'environnement :
+ *
+ * 1. Clé : `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD`
+ * Valeur : `true`
+ *
+ * 2. Clé : `PUPPETEER_CACHE_DIR`
+ * Valeur : `/opt/render/project/src/.cache/puppeteer`
+ * (Cette ligne indique à Puppeteer où mettre ses fichiers temporaires)
  *
  * Action 2: Vérifiez votre fichier `package.json`
  * --------------------------------------------------
@@ -42,7 +46,8 @@
  * --------------------------------------------------
  * - Dans les "Settings" > "Build & Deploy", la "Build Command" doit être : `npm install`
  *
- * Après avoir vérifié ces 3 points, redéployez votre application.
+ * Après avoir vérifié ces 3 points, redéployez votre application avec un "Manual Deploy"
+ * et choisissez "Clear build cache & deploy".
  */
 
 const express = require('express');
@@ -133,10 +138,16 @@ async function getEprelData(eprelCode) {
         console.log(`Scraping des données pour EPREL ${eprelCode} avec @sparticuz/chrome-aws-lambda...`);
         const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
         
+        const executablePath = await sparticuz.executablePath;
+        
+        if (!executablePath) {
+             throw new Error(`Le chemin de l'exécutable Chromium est introuvable. Le paquet @sparticuz/chrome-aws-lambda est-il correctement installé ?`);
+        }
+
         browser = await puppeteer.launch({
             args: sparticuz.args,
             defaultViewport: sparticuz.defaultViewport,
-            executablePath: await sparticuz.executablePath,
+            executablePath: executablePath,
             headless: sparticuz.headless,
             ignoreHTTPSErrors: true,
         });

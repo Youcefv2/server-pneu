@@ -145,11 +145,11 @@ async function getEprelData(eprelCode) {
     let browser = null;
     try {
         const executablePath = puppeteer.executablePath();
-        console.log('Chemin Chrome détecté par Puppeteer :', executablePath);
+        console.log('Chrome détecté par Puppeteer à :', executablePath);
 
         browser = await puppeteer.launch({
             headless: true,
-            executablePath,
+            executablePath, // 🟢 INDISPENSABLE !
             args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
 

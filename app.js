@@ -1,6 +1,6 @@
 /*
  * =============================================================================
- * Serveur pour l'Application de Gestion de Pneus de Garage avec MongoDB
+ * Serveur pour l'Application de Gestion de Pneus de Garage avec MongoDB*
  * =============================================================================
  *
  * Description :

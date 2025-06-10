@@ -10,30 +10,38 @@
  *
  * NOUVELLE VERSION : Utilisation de @sparticuz/chrome-aws-lambda pour une compatibilité maximale avec Render.
  *
- * Fonctionnalités :
- * - Connexion utilisateur.
- * - Gestion des Racks : Création (avec marque réservée optionnelle) et listage.
- * - Gestion des Pneus :
- * - Ajout d'une instance de pneu via son code EPREL.
- * - Scraping du site EPREL avec Puppeteer.
- * - Placement automatique qui respecte les réservations de marque.
- * - Recherche et suppression.
+ * =============================================================================
+ * INSTRUCTIONS DE DÉPLOIEMENT SUR RENDER (TRÈS IMPORTANT)
+ * =============================================================================
+ * L'erreur "Cannot find module '@sparticuz/chrome-aws-lambda'" signifie que ce
+ * paquet n'a pas été installé sur le serveur Render.
  *
- * Instructions pour démarrer et déployer sur Render :
- * 1. Dans le terminal, exécutez :
- * npm init -y
- * npm install express mongoose dotenv @sparticuz/chrome-aws-lambda puppeteer-core cors
- * 2. Créez un fichier `.env` et ajoutez votre chaîne de connexion MongoDB :
- * MONGO_URI=mongodb://...
- * 3. Assurez-vous qu'aucun buildpack puppeteer n'est installé sur Render.
- * 4. Lancez le serveur.
+ * 1. Mettez à jour votre fichier `package.json` :
+ * Assurez-vous que les dépendances suivantes sont bien présentes :
+ * "dependencies": {
+ * "@sparticuz/chrome-aws-lambda": "...",
+ * "cors": "...",
+ * "dotenv": "...",
+ * "express": "...",
+ * "mongoose": "...",
+ * "puppeteer-core": "..."
+ * }
  *
+ * 2. Configurez la commande de build sur Render :
+ * - Allez dans les "Settings" de votre service sur Render.
+ * - Assurez-vous que la "Build Command" est : `npm install`
+ *
+ * 3. Supprimez les anciens Buildpacks :
+ * - Si vous aviez ajouté un buildpack pour Puppeteer, supprimez-le pour
+ * éviter les conflits. Ce nouveau paquet n'en a pas besoin.
+ *
+ * 4. Redéployez votre application sur Render.
  */
 
 const express = require('express');
 const mongoose = require('mongoose');
 const puppeteer = require('puppeteer-core');
-const sparticuz = require('@sparticuz/chrome-aws-lambda'); // NOUVEAU paquet
+const sparticuz = require('@sparticuz/chrome-aws-lambda');
 const cors = require('cors');
 require('dotenv').config();
 
@@ -118,7 +126,6 @@ async function getEprelData(eprelCode) {
         console.log(`Scraping des données pour EPREL ${eprelCode} avec @sparticuz/chrome-aws-lambda...`);
         const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
         
-        // Configuration pour utiliser le Chromium fourni par @sparticuz/chrome-aws-lambda
         const executablePath = await sparticuz.executablePath();
         console.log(`[Puppeteer] Chemin de l'exécutable : ${executablePath}`);
 
@@ -176,7 +183,7 @@ async function getEprelData(eprelCode) {
 }
 
 
-// --- Routes de l'API .---
+// --- Routes de l'API ---
 
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;

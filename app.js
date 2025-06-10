@@ -114,8 +114,8 @@ const authenticate = async (req, res, next) => {
 async function getEprelData(eprelCode) {
   let browser;
   try {
-    const executablePath = puppeteer.executablePath();
-    console.log('➡️ Chemin Chrome :', executablePath);
+    const executablePath = '/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome';
+    console.log("➡️ Chemin forcé Chrome :", executablePath);
 
     browser = await puppeteer.launch({
         headless: true,

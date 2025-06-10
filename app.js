@@ -11,31 +11,41 @@
  * NOUVELLE VERSION : Utilisation de @sparticuz/chrome-aws-lambda pour une compatibilité maximale avec Render.
  *
  * =============================================================================
- * INSTRUCTIONS DE DÉPLOIEMENT SUR RENDER (TRÈS IMPORTANT)
+ * INSTRUCTIONS DE DÉPLOIEMENT SUR RENDER (TRÈS IMPORTANT - À LIRE ATTENTIVEMENT)
  * =============================================================================
- * L'erreur "Cannot find module '@sparticuz/chrome-aws-lambda'" signifie que ce
- * paquet n'a pas été installé sur le serveur Render.
+ * L'erreur "Error: Cannot find module '@sparticuz/chrome-aws-lambda'" signifie
+ * que ce paquet n'est pas installé sur le serveur Render. Ceci est un problème
+ * de configuration de votre environnement de déploiement.
  *
- * 1. Mettez à jour votre fichier `package.json` :
- * Assurez-vous que les dépendances suivantes sont bien présentes :
+ * Action 1: Vérifiez votre fichier `package.json`
+ * --------------------------------------------------
+ * Assurez-vous que votre fichier `package.json` contient TOUTES les dépendances
+ * suivantes. Copiez-collez cette section si nécessaire pour être sûr.
+ *
  * "dependencies": {
- * "@sparticuz/chrome-aws-lambda": "...",
- * "cors": "...",
- * "dotenv": "...",
- * "express": "...",
- * "mongoose": "...",
- * "puppeteer-core": "..."
+ * "@sparticuz/chrome-aws-lambda": "^17.1.0",
+ * "cors": "^2.8.5",
+ * "dotenv": "^16.3.1",
+ * "express": "^4.18.2",
+ * "mongoose": "^7.5.0",
+ * "puppeteer-core": "^17.1.0"
  * }
  *
- * 2. Configurez la commande de build sur Render :
+ * (Les numéros de version peuvent être plus récents).
+ *
+ * Action 2: Configurez la commande de build sur Render
+ * --------------------------------------------------
  * - Allez dans les "Settings" de votre service sur Render.
- * - Assurez-vous que la "Build Command" est : `npm install`
+ * - Trouvez la section "Build & Deploy".
+ * - Assurez-vous que la "Build Command" est EXACTEMENT : `npm install`
  *
- * 3. Supprimez les anciens Buildpacks :
- * - Si vous aviez ajouté un buildpack pour Puppeteer, supprimez-le pour
- * éviter les conflits. Ce nouveau paquet n'en a pas besoin.
+ * Action 3: Supprimez les anciens Buildpacks (si présents)
+ * --------------------------------------------------
+ * - Dans les "Settings", vérifiez si vous avez des "Buildpacks".
+ * - Si vous voyez un buildpack pour Puppeteer, supprimez-le.
+ * Ce nouveau paquet `@sparticuz/chrome-aws-lambda` n'en a pas besoin.
  *
- * 4. Redéployez votre application sur Render.
+ * Après avoir vérifié ces 3 points, redéployez votre application sur Render.
  */
 
 const express = require('express');
@@ -127,7 +137,7 @@ async function getEprelData(eprelCode) {
         const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
         
         const executablePath = await sparticuz.executablePath();
-        console.log(`[Puppeteer] Chemin de l'exécutable : ${executablePath}`);
+        console.log(`[Puppeteer] Chemin de l'exécutable trouvé : ${executablePath}`);
 
         browser = await puppeteer.launch({
             args: sparticuz.args,

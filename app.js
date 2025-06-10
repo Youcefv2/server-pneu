@@ -14,24 +14,22 @@
  * INSTRUCTIONS DE DÉPLOIEMENT SUR RENDER (TRÈS IMPORTANT - À LIRE ATTENTIVEMENT)
  * =============================================================================
  * L'erreur "_projectRoot is undefined" indique un problème de configuration
- * de Puppeteer dans l'environnement de déploiement. Suivez ces étapes :
+ * de Puppeteer dans l'environnement de déploiement. Suivez ces étapes PRÉCISÉMENT :
  *
  * Action 1: Configurez les variables d'environnement sur Render
  * ----------------------------------------------------------------
  * - Allez dans votre service sur Render, puis dans l'onglet "Environment".
- * - Ajoutez DEUX variables d'environnement :
+ * - Assurez-vous d'avoir SEULEMENT UNE variable d'environnement pour Puppeteer :
  *
- * 1. Clé : `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD`
- * Valeur : `true`
+ * - Clé (Key)   : `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD`
+ * - Valeur (Value) : `true`
  *
- * 2. Clé : `PUPPETEER_CACHE_DIR`
- * Valeur : `/opt/render/project/src/.cache/puppeteer`
- * (Cette ligne indique à Puppeteer où mettre ses fichiers temporaires)
+ * - IMPORTANT : Si vous aviez ajouté une variable `PUPPETEER_CACHE_DIR`,
+ * veuillez la SUPPRIMER. Elle entre en conflit avec le paquet utilisé.
  *
  * Action 2: Vérifiez votre fichier `package.json`
  * --------------------------------------------------
- * Assurez-vous que votre fichier `package.json` contient TOUTES les dépendances
- * suivantes, de préférence avec des versions récentes :
+ * Assurez-vous que votre fichier `package.json` contient les dépendances suivantes :
  *
  * "dependencies": {
  * "@sparticuz/chrome-aws-lambda": "^22.0.0",
@@ -46,8 +44,10 @@
  * --------------------------------------------------
  * - Dans les "Settings" > "Build & Deploy", la "Build Command" doit être : `npm install`
  *
- * Après avoir vérifié ces 3 points, redéployez votre application avec un "Manual Deploy"
- * et choisissez "Clear build cache & deploy".
+ * Action 4: Redéployez l'application
+ * --------------------------------------------------
+ * - Allez dans l'onglet "Manual Deploy" de votre service.
+ * - Cliquez sur "Clear build cache & deploy" pour forcer une réinstallation propre.
  */
 
 const express = require('express');
@@ -141,7 +141,7 @@ async function getEprelData(eprelCode) {
         const executablePath = await sparticuz.executablePath;
         
         if (!executablePath) {
-             throw new Error(`Le chemin de l'exécutable Chromium est introuvable. Le paquet @sparticuz/chrome-aws-lambda est-il correctement installé ?`);
+             throw new Error(`Le chemin de l'exécutable Chromium est introuvable. Assurez-vous que @sparticuz/chrome-aws-lambda est bien dans votre package.json et que la commande 'npm install' s'exécute correctement sur Render.`);
         }
 
         browser = await puppeteer.launch({
@@ -328,4 +328,10 @@ app.delete('/tires/:id', authenticate, async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Serveur démarré sur le port ${PORT}`);
     console.log('Connecté à la base de données MongoDB.');
+    try {
+        const pptrVersion = require('puppeteer-core/package.json').version;
+        console.log(`[Puppeteer] Version de puppeteer-core détectée : ${pptrVersion}`);
+    } catch (e) {
+        console.log('[Puppeteer] Impossible de lire la version de puppeteer-core.');
+    }
 });

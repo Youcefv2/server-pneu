@@ -42,6 +42,10 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const getChromePath = () => {
+  return process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath();
+};
+
 app.use(cors());
 app.use(express.json());
 
@@ -110,15 +114,14 @@ const authenticate = async (req, res, next) => {
 async function getEprelData(eprelCode) {
   let browser;
   try {
-    const executablePath = puppeteer.executablePath(); // 👈 OBLIGATOIRE
+    const executablePath = getChromePath();
     console.log('➡️ Chemin Chrome :', executablePath);
 
     browser = await puppeteer.launch({
-      headless: true,
-      executablePath, // 👈 ICI aussi !
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    headless: true,
+    executablePath,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
-
     const page = await browser.newPage();
     await page.goto(`https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`, {
       waitUntil: 'networkidle0'

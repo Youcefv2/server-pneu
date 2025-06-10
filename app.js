@@ -35,6 +35,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const puppeteer = require('puppeteer-core');
+const fs = require('fs');
 const path = require('path');
 const cors = require('cors'); // Ajout de CORS
 require('dotenv').config();

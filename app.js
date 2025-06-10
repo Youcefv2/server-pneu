@@ -113,18 +113,30 @@ const authenticate = async (req, res, next) => {
 };
 // --- Service de Scraping ---
 
-const CHROME_PATH = '/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome';
+function getChromePath() {
+    const baseDir = '/opt/render/.cache/puppeteer/chrome/';
+    try {
+        const versions = fs.readdirSync(baseDir);
+        const latestVersion = versions.sort().pop(); // dernière version installée
+        return path.join(baseDir, latestVersion, 'chrome-linux64', 'chrome');
+    } catch (e) {
+        console.error("Impossible de détecter le chemin Chrome :", e);
+        return null;
+    }
+}
 
 async function getEprelData(eprelCode) {
     if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
 
-    // 🧠 Le vrai chemin Chrome après postinstall
-    const CHROME_EXECUTABLE_PATH = '/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome';
+    const CHROME_EXECUTABLE_PATH = getChromePath();
+    if (!CHROME_EXECUTABLE_PATH || !fs.existsSync(CHROME_EXECUTABLE_PATH)) {
+        console.error('Chrome introuvable à l\'emplacement prévu :', CHROME_EXECUTABLE_PATH);
+        return null;
+    }
 
     let browser = null;
     try {
-        console.log(`Scraping des données pour EPREL ${eprelCode} avec Puppeteer...`);
-
+        console.log(`Scraping des données pour EPREL ${eprelCode}...`);
         browser = await puppeteer.launch({
             headless: true,
             executablePath: CHROME_EXECUTABLE_PATH,

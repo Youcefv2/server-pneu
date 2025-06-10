@@ -8,15 +8,15 @@
  * permettant de gérer les pneus d'un garage. Les données sont persistantes
  * grâce à une base de données MongoDB.
  *
- * NOUVELLE VERSION : Correction pour le déploiement sur Render.
+ * NOUVELLE VERSION : Utilisation de "chrome-aws-lambda" pour une meilleure compatibilité.
  *
  * =============================================================================
  * INSTRUCTIONS DE DÉPLOIEMENT SUR RENDER (TRÈS IMPORTANT - À LIRE ATTENTIVEMENT)
  * =============================================================================
- * L'erreur "ETARGET" ou "notarget" indique un problème d'installation des
- * dépendances. Suivez ces étapes PRÉCISÉMENT :
+ * L'erreur "Cannot find module" ou "executablePath is not a function" indique un
+ * problème de configuration de Puppeteer. Suivez ces étapes PRÉCISÉMENT :
  *
- * Action 1: Configurez les variables d'environnement sur Render
+ * Action 1: Configurez votre variable d'environnement sur Render
  * ----------------------------------------------------------------
  * - Allez dans votre service sur Render, puis dans l'onglet "Environment".
  * - Assurez-vous d'avoir SEULEMENT UNE variable d'environnement pour Puppeteer :
@@ -24,24 +24,25 @@
  * - Clé (Key)   : `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD`
  * - Valeur (Value) : `true`
  *
- * - IMPORTANT : Si vous aviez ajouté une variable `PUPPETEER_CACHE_DIR`,
- * veuillez la SUPPRIMER.
+ * - IMPORTANT : Assurez-vous qu'aucune autre variable comme `PUPPETEER_CACHE_DIR`
+ * ou `PUPPETEER_EXECUTABLE_PATH` n'est définie.
  *
  * Action 2: Mettez à jour votre fichier `package.json`
  * --------------------------------------------------
- * Assurez-vous que votre fichier `package.json` contient les dépendances avec
- * les versions EXACTES ci-dessous. Ceci est l'étape la plus critique.
+ * C'est l'étape la plus critique. Assurez-vous que votre fichier `package.json`
+ * contient les dépendances avec les versions EXACTES ci-dessous.
  *
  * "dependencies": {
- * "@sparticuz/chrome-aws-lambda": "17.0.0",
+ * "chrome-aws-lambda": "10.1.0",
+ * "puppeteer-core": "10.1.0",
  * "cors": "^2.8.5",
  * "dotenv": "^16.3.1",
  * "express": "^4.18.2",
- * "mongoose": "^8.0.0",
- * "puppeteer-core": "17.0.0"
+ * "mongoose": "^8.0.0"
  * }
  *
- * (Note: nous utilisons la version 17 qui est reconnue comme très stable)
+ * (Note: nous utilisons la version 10.1.0 pour ces deux paquets car leur
+ * compatibilité est prouvée).
  *
  * Action 3: Configurez la commande de build sur Render
  * --------------------------------------------------
@@ -56,7 +57,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const puppeteer = require('puppeteer-core');
-const sparticuz = require('@sparticuz/chrome-aws-lambda');
+const chrome = require('chrome-aws-lambda'); // MODIFIÉ: Utilisation du paquet 'chrome-aws-lambda'
 const cors = require('cors');
 require('dotenv').config();
 
@@ -138,20 +139,20 @@ async function getEprelData(eprelCode) {
     if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
     let browser = null;
     try {
-        console.log(`Scraping des données pour EPREL ${eprelCode} avec @sparticuz/chrome-aws-lambda...`);
+        console.log(`Scraping des données pour EPREL ${eprelCode} avec chrome-aws-lambda...`);
         const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
         
-        const executablePath = await sparticuz.executablePath;
+        const executablePath = await chrome.executablePath;
         
         if (!executablePath) {
-             throw new Error(`Le chemin de l'exécutable Chromium est introuvable. Assurez-vous que @sparticuz/chrome-aws-lambda est bien dans votre package.json et que la commande 'npm install' s'exécute correctement sur Render.`);
+             throw new Error(`Le chemin de l'exécutable Chromium est introuvable. Le paquet 'chrome-aws-lambda' est-il correctement installé ?`);
         }
 
         browser = await puppeteer.launch({
-            args: sparticuz.args,
-            defaultViewport: sparticuz.defaultViewport,
+            args: chrome.args,
+            defaultViewport: chrome.defaultViewport,
             executablePath: executablePath,
-            headless: sparticuz.headless,
+            headless: chrome.headless,
             ignoreHTTPSErrors: true,
         });
 

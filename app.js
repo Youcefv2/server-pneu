@@ -34,7 +34,7 @@
 
 const express = require('express');
 const mongoose = require('mongoose');
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors'); // Ajout de CORS
@@ -142,80 +142,14 @@ function getChromePath() {
 async function getEprelData(eprelCode) {
     if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
 
-    const chromePath = getChromePath();
-    console.log("Chrome détecté :", chromePath);
-    if (!chromePath) {
-        console.error('Chrome introuvable. Impossible de scraper EPREL.');
-        return null;
-    }
-
     let browser = null;
     try {
-        console.log(`Scraping des données pour EPREL ${eprelCode}...`);
-        const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
+        const executablePath = puppeteer.executablePath();
+        console.log('Chemin Chrome détecté par Puppeteer :', executablePath);
 
         browser = await puppeteer.launch({
             headless: true,
-            executablePath: chromePath,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
-
-        const page = await browser.newPage();
-        await page.goto(url, { waitUntil: 'networkidle0' });
-
-        const scrapedData = await page.evaluate(() => {
-            const boldSelector = '.ecl-u-type-bold.ecl-u-pl-l-xl.ecl-u-pr-2xs.ecl-u-type-align-right';
-            const marqueSelector = '.ecl-u-type-l.ecl-u-type-color-grey-75.ecl-u-type-family-alt';
-            const getText = (selector) => document.querySelector(selector)?.textContent.trim() || null;
-            const allBoldElements = document.querySelectorAll(boldSelector);
-            const allTexts = Array.from(allBoldElements, el => el.textContent.trim());
-            const dimension = allTexts.find(t => /\d+\/\d+\s*R\s*\d+/.test(t)) || null;
-            const nom = allTexts.find(t => t && !/\d+\/\d+\s*R\s*\d+/.test(t)) || null;
-            const marque = getText(marqueSelector);
-            return { dimension, nom, marque };
-        });
-
-        const { dimension: sizeString, nom: model, marque: brand } = scrapedData;
-        if (!brand || !sizeString) return null;
-
-        const sizeMatch = sizeString.match(/(\d+)\/(\d+)\s*R\s*(\d+)/);
-        if (!sizeMatch) return null;
-
-        const [, widthMm, aspectRatio, diameter] = sizeMatch;
-        const tireInfo = {
-            brand,
-            model: model || 'N/A',
-            width: parseFloat(widthMm) / 10,
-            aspectRatio: parseInt(aspectRatio, 10),
-            diameter: parseInt(diameter, 10),
-        };
-
-        eprelDataCache[eprelCode] = tireInfo;
-        return tireInfo;
-
-    } catch (error) {
-        console.error(`Erreur de scraping pour ${eprelCode}:`, error.message);
-        return null;
-    } finally {
-        if (browser) await browser.close();
-    }
-}
-
-async function getEprelData(eprelCode) {
-    if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
-
-    const CHROME_EXECUTABLE_PATH = getChromePath();
-    if (!CHROME_EXECUTABLE_PATH || !fs.existsSync(CHROME_EXECUTABLE_PATH)) {
-        console.error('Chrome introuvable à l\'emplacement prévu :', CHROME_EXECUTABLE_PATH);
-        return null;
-    }
-
-    let browser = null;
-    try {
-        console.log(`Scraping des données pour EPREL ${eprelCode}...`);
-        browser = await puppeteer.launch({
-            headless: true,
-            executablePath: CHROME_EXECUTABLE_PATH,
+            executablePath,
             args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
 

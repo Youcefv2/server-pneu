@@ -11,6 +11,6 @@
     "mongoose": "^7.6.1",
     "dotenv": "^16.3.1",
     "cors": "^2.8.5",
-    "puppeteer-core": "^22.5.0"
+    "puppeteer": "^22.5.0"
   }
 }

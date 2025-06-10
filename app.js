@@ -8,60 +8,41 @@
  * permettant de gérer les pneus d'un garage. Les données sont persistantes
  * grâce à une base de données MongoDB.
  *
- * NOUVELLE VERSION : Débogage final pour le déploiement sur Render.
+ * NOUVELLE VERSION : Ajout de la possibilité de réserver un rack à une marque.
  *
- * =============================================================================
- * INSTRUCTIONS DE DÉPLOIEMENT SUR RENDER (TRÈS IMPORTANT - À LIRE ATTENTIVEMENT)
- * =============================================================================
- * L'erreur "Could not find Chrome" indique un problème de configuration
- * de Puppeteer. Suivez ces étapes PRÉCISÉMENT :
+ * Fonctionnalités :
+ * - Connexion utilisateur.
+ * - Gestion des Racks : Création (avec marque réservée optionnelle) et listage.
+ * - Gestion des Pneus :
+ * - Ajout d'une instance de pneu via son code EPREL.
+ * - Scraping du site EPREL avec Puppeteer.
+ * - Placement automatique qui respecte les réservations de marque.
+ * - Recherche et suppression.
  *
- * Action 1: Configurez votre variable d'environnement sur Render
- * ----------------------------------------------------------------
- * - Allez dans votre service sur Render, puis dans l'onglet "Environment".
- * - Ajoutez UNE SEULE variable d'environnement :
+ * Instructions pour démarrer :
+ * 1. Assurez-vous d'avoir Node.js et MongoDB installés.
+ * 2. Enregistrez ce fichier sous `server.js`.
+ * 3. Dans le terminal, exécutez :
+ * npm init -y
+ * npm install express mongoose dotenv puppeteer cors
+ * 4. Créez un fichier `.env` et ajoutez votre chaîne de connexion MongoDB :
+ * MONGO_URI=mongodb://localhost:27017/garage-pneu
+ * 5. Lancez le serveur avec :
+ * node server.js
  *
- * - Clé (Key)   : `PUPPETEER_CACHE_DIR`
- * - Valeur (Value) : `/opt/render/project/src/.cache/puppeteer`
- *
- * - IMPORTANT : Assurez-vous que la variable `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD`
- * est bien SUPPRIMÉE si elle existe.
- *
- * Action 2: Mettez à jour votre fichier `package.json`
- * --------------------------------------------------
- * C'est l'étape la plus critique. Nous revenons à la version standard de "puppeteer".
- * Le fichier doit contenir les dépendances suivantes.
- *
- * "dependencies": {
- * "puppeteer": "^22.0.0",
- * "cors": "^2.8.5",
- * "dotenv": "^16.3.1",
- * "express": "^4.18.2",
- * "mongoose": "^8.0.0"
- * }
- *
- * Action 3: Configurez la commande de build sur Render
- * --------------------------------------------------
- * - Dans les "Settings" > "Build & Deploy", la "Build Command" doit être : `npm install`
- *
- * Action 4: Redéployez l'application
- * --------------------------------------------------
- * - Allez dans l'onglet "Manual Deploy" de votre service.
- * - Cliquez sur "Clear build cache & deploy" pour forcer une réinstallation propre.
  */
 
 const express = require('express');
 const mongoose = require('mongoose');
-const puppeteer = require('puppeteer'); // MODIFIÉ: Utilisation du paquet 'puppeteer' standard
-const cors = require('cors');
-const fs = require('fs'); // Ajout du module File System pour la vérification
+const puppeteer = require('puppeteer');
+const cors = require('cors'); // Ajout de CORS
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
 // --- Middlewares ---
-app.use(cors());
+app.use(cors()); // Activation de CORS pour autoriser les requêtes du frontend
 app.use(express.json());
 
 // --- Connexion à MongoDB ---
@@ -75,7 +56,7 @@ mongoose.connect(process.env.MONGO_URI, {
     process.exit(1);
 });
 
-// --- Schémas Mongoose ---
+// --- Schémas Mongoose (MISE À JOUR) ---
 
 const userSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
@@ -86,7 +67,7 @@ const rackSchema = new mongoose.Schema({
     name: { type: String, required: true },
     totalWidth: { type: Number, required: true },
     isDouble: { type: Boolean, default: false },
-    reservedForBrand: { type: String, trim: true, uppercase: true, default: null },
+    reservedForBrand: { type: String, trim: true, uppercase: true, default: null }, // NOUVEAU CHAMP
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 });
 
@@ -129,32 +110,15 @@ const authenticate = async (req, res, next) => {
         res.status(401).json({ message: 'Accès non autorisé.' });
     }
 };
-
 // --- Service de Scraping ---
 async function getEprelData(eprelCode) {
     if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
     let browser = null;
     try {
-        console.log(`Scraping des données pour EPREL ${eprelCode} avec puppeteer standard...`);
+        console.log(`Scraping des données pour EPREL ${eprelCode} avec Puppeteer...`);
         const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
-        
-        // Log de débogage pour vérifier le chemin
-        const executablePath = puppeteer.executablePath();
-        console.log(`[Puppeteer Debug] Chemin de l'exécutable attendu : ${executablePath}`);
-        
-        if (!fs.existsSync(executablePath)) {
-            throw new Error(`Le fichier de l'exécutable n'existe pas au chemin attendu : ${executablePath}. Problème de build ou de cache sur Render. Vérifiez la variable d'environnement PUPPETEER_CACHE_DIR.`);
-        }
-        
-        browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox'],
-            executablePath: executablePath // On spécifie explicitement le chemin
-        });
-
+        browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
         const page = await browser.newPage();
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36');
-
         await page.goto(url, { waitUntil: 'networkidle0' });
 
         const scrapedData = await page.evaluate(() => {
@@ -170,10 +134,7 @@ async function getEprelData(eprelCode) {
         });
         
         const { dimension: sizeString, nom: model, marque: brand } = scrapedData;
-        if (!brand || !sizeString) {
-            console.error(`Sélecteurs non trouvés pour EPREL ${eprelCode}. La structure de la page a peut-être changé.`);
-            return null;
-        }
+        if (!brand || !sizeString) return null;
 
         const sizeMatch = sizeString.match(/(\d+)\/(\d+)\s*R\s*(\d+)/);
         if (!sizeMatch) return null;
@@ -190,13 +151,12 @@ async function getEprelData(eprelCode) {
         eprelDataCache[eprelCode] = tireInfo;
         return tireInfo;
     } catch (error) {
-        console.error(`Erreur majeure de scraping pour ${eprelCode}:`, error);
+        console.error(`Erreur de scraping pour ${eprelCode}:`, error.message);
         return null;
     } finally {
         if (browser) await browser.close();
     }
 }
-
 
 // --- Routes de l'API ---
 
@@ -218,6 +178,10 @@ app.post('/login', async (req, res) => {
     }
 });
 
+/**
+ * POST /racks (MISE À JOUR)
+ * Prend en compte la réservation de marque.
+ */
 app.post('/racks', authenticate, async (req, res) => {
     const { name, totalWidth, isDouble, reservedForBrand } = req.body;
     try {
@@ -251,20 +215,30 @@ app.get('/racks', authenticate, async (req, res) => {
     }
 });
 
+/**
+ * POST /tires (MISE À JOUR)
+ * La logique de placement respecte les réservations de marque.
+ */
 app.post('/tires', authenticate, async (req, res) => {
     const { eprelCode } = req.body;
     if (!eprelCode) return res.status(400).json({ message: 'Le code EPREL est requis.' });
 
     try {
         const tireData = await getEprelData(eprelCode);
-        if (!tireData) return res.status(404).json({ message: `Infos non trouvées pour EPREL ${eprelCode}. Le scraping a peut-être échoué.` });
+        if (!tireData) return res.status(404).json({ message: `Infos non trouvées pour EPREL ${eprelCode}.` });
 
         const userRacks = await Rack.find({ userId: req.user._id });
         const storedTires = await Tire.find({ userId: req.user._id, location: { $ne: null } });
         let foundLocation = null;
-        const tireBrandUpper = tireData.brand.toUpperCase();
-        const eligibleRacks = userRacks.filter(rack => !rack.reservedForBrand || rack.reservedForBrand === tireBrandUpper);
 
+        const tireBrandUpper = tireData.brand.toUpperCase();
+        
+        // Filtrer les racks éligibles pour ce pneu
+        const eligibleRacks = userRacks.filter(rack => 
+            !rack.reservedForBrand || rack.reservedForBrand === tireBrandUpper
+        );
+
+        // Stratégie 1: Derrière un pneu identique dans un rack éligible
         for (const rack of eligibleRacks.filter(r => r.isDouble)) {
             const frontTiresOfSameType = storedTires.filter(t => t.location.rackId.equals(rack._id) && t.location.row === 'front' && t.eprelCode === eprelCode);
             const backTiresOfSameType = storedTires.filter(t => t.location.rackId.equals(rack._id) && t.location.row === 'back' && t.eprelCode === eprelCode);
@@ -278,6 +252,7 @@ app.post('/tires', authenticate, async (req, res) => {
             }
         }
         
+        // Stratégie 2: En première rangée d'un rack éligible
         if (!foundLocation) {
             for (const rack of eligibleRacks) {
                 const occupiedWidthFront = storedTires.filter(t => t.location.rackId.equals(rack._id) && t.location.row === 'front').reduce((sum, t) => sum + t.width, 0);
@@ -326,6 +301,6 @@ app.delete('/tires/:id', authenticate, async (req, res) => {
 
 // --- Démarrage du Serveur ---
 app.listen(PORT, () => {
-    console.log(`Serveur démarré sur le port ${PORT}`);
+    console.log(`Serveur démarré sur http://localhost:${PORT}`);
     console.log('Connecté à la base de données MongoDB.');
 });

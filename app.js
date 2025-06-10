@@ -1,6 +1,6 @@
 /*
  * =============================================================================
- * Serveur pour l'Application de Gestion de Pneus de Garage avec MongoDB*
+ * Serveur pour l'Application de Gestion de Pneus de Garage avec MongoDB
  * =============================================================================
  *
  * Description :
@@ -8,13 +8,13 @@
  * permettant de gérer les pneus d'un garage. Les données sont persistantes
  * grâce à une base de données MongoDB.
  *
- * NOUVELLE VERSION : Correction finale pour le déploiement sur Render.
+ * NOUVELLE VERSION : Correction pour le déploiement sur Render.
  *
  * =============================================================================
  * INSTRUCTIONS DE DÉPLOIEMENT SUR RENDER (TRÈS IMPORTANT - À LIRE ATTENTIVEMENT)
  * =============================================================================
- * L'erreur "_projectRoot is undefined" indique un problème de configuration
- * de Puppeteer dans l'environnement de déploiement. Suivez ces étapes PRÉCISÉMENT :
+ * L'erreur "ETARGET" ou "notarget" indique un problème d'installation des
+ * dépendances. Suivez ces étapes PRÉCISÉMENT :
  *
  * Action 1: Configurez les variables d'environnement sur Render
  * ----------------------------------------------------------------
@@ -25,20 +25,23 @@
  * - Valeur (Value) : `true`
  *
  * - IMPORTANT : Si vous aviez ajouté une variable `PUPPETEER_CACHE_DIR`,
- * veuillez la SUPPRIMER. Elle entre en conflit avec le paquet utilisé.
+ * veuillez la SUPPRIMER.
  *
- * Action 2: Vérifiez votre fichier `package.json`
+ * Action 2: Mettez à jour votre fichier `package.json`
  * --------------------------------------------------
- * Assurez-vous que votre fichier `package.json` contient les dépendances suivantes :
+ * Assurez-vous que votre fichier `package.json` contient les dépendances avec
+ * les versions EXACTES ci-dessous. Ceci est l'étape la plus critique.
  *
  * "dependencies": {
- * "@sparticuz/chrome-aws-lambda": "^22.0.0",
+ * "@sparticuz/chrome-aws-lambda": "17.0.0",
  * "cors": "^2.8.5",
  * "dotenv": "^16.3.1",
  * "express": "^4.18.2",
  * "mongoose": "^8.0.0",
- * "puppeteer-core": "^22.0.0"
+ * "puppeteer-core": "17.0.0"
  * }
+ *
+ * (Note: nous utilisons la version 17 qui est reconnue comme très stable)
  *
  * Action 3: Configurez la commande de build sur Render
  * --------------------------------------------------

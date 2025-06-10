@@ -1,16 +1,16 @@
 {
- "dependencies": {
- "puppeteer": "^22.0.0",
- "cors": "^2.8.5",
- "dotenv": "^16.3.1",
- "express": "^4.18.2",
- "mongoose": "^8.0.0"
- },
-"scripts": {
-  "start": "node app.js",
-  "postinstall": "npx puppeteer browsers install chrome"
-},
-"puppeteer": {
+  "scripts": {
+    "start": "node server.js",
+    "postinstall": "npx puppeteer browsers install chrome"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^7.6.1",
+    "dotenv": "^16.3.1",
+    "puppeteer": "^22.5.0",
+    "cors": "^2.8.5"
+  },
+  "puppeteer": {
   "args": ["--no-sandbox", "--disable-setuid-sandbox"]
-}
+  }
 }

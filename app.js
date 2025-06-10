@@ -34,7 +34,8 @@
 
 const express = require('express');
 const mongoose = require('mongoose');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
+const path = require('path');
 const cors = require('cors'); // Ajout de CORS
 require('dotenv').config();
 
@@ -112,23 +113,25 @@ const authenticate = async (req, res, next) => {
 };
 // --- Service de Scraping ---
 
+const CHROME_PATH = '/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome';
+
 async function getEprelData(eprelCode) {
-    if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
+  if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
 
-    let browser = null;
-    try {
-        const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
-        const executablePath = puppeteer.executablePath(); // ← récupéré dynamiquement
-        console.log('Chemin exécuté par Puppeteer:', executablePath); // ← ligne de debug
+  let browser = null;
+  try {
+    console.log(`Scraping des données pour EPREL ${eprelCode} avec Puppeteer...`);
 
-        browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox'],
-            executablePath
-        });
+    browser = await puppeteer.launch({
+      headless: true,
+      executablePath: CHROME_PATH,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
 
-        const page = await browser.newPage();
-        await page.goto(url, { waitUntil: 'networkidle0' });
+    const page = await browser.newPage();
+    await page.goto(`https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`, {
+      waitUntil: 'networkidle0'
+    });
 
         const scrapedData = await page.evaluate(() => {
             const boldSelector = '.ecl-u-type-bold.ecl-u-pl-l-xl.ecl-u-pr-2xs.ecl-u-type-align-right';

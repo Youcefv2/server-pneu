@@ -145,11 +145,11 @@ async function getEprelData(eprelCode) {
     let browser = null;
     try {
         const executablePath = puppeteer.executablePath();
-        console.log('Chrome détecté par Puppeteer à :', executablePath);
+        console.log('➡️ Chrome détecté par Puppeteer :', executablePath);
 
         browser = await puppeteer.launch({
             headless: true,
-            executablePath, // 🟢 INDISPENSABLE !
+            executablePath, // 🟢 ← obligatoire
             args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
 
@@ -188,7 +188,7 @@ async function getEprelData(eprelCode) {
         return tireInfo;
 
     } catch (error) {
-        console.error(`Erreur de scraping pour ${eprelCode}:`, error.message);
+        console.error(`❌ Erreur de scraping pour ${eprelCode}:`, error.message);
         return null;
     } finally {
         if (browser) await browser.close();

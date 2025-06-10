@@ -113,21 +113,22 @@ const authenticate = async (req, res, next) => {
 // --- Service de Scraping ---
 async function getEprelData(eprelCode) {
     if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
+
+    const CHROME_EXECUTABLE_PATH = '/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome';
+
     let browser = null;
     try {
         console.log(`Scraping des données pour EPREL ${eprelCode} avec Puppeteer...`);
         const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
 
-        const executablePath = puppeteer.executablePath(); // <- chemin vers Chrome téléchargé
-
         browser = await puppeteer.launch({
             headless: true,
             args: ['--no-sandbox', '--disable-setuid-sandbox'],
-            executablePath: executablePath // <- utilise le chemin détecté
+            executablePath: CHROME_EXECUTABLE_PATH // ← on force le chemin exact
         });
 
         const page = await browser.newPage();
-        await page.goto(url, { waitUntil: 'networkidle0' });;
+        await page.goto(url, { waitUntil: 'networkidle0' });
 
         const scrapedData = await page.evaluate(() => {
             const boldSelector = '.ecl-u-type-bold.ecl-u-pl-l-xl.ecl-u-pr-2xs.ecl-u-type-align-right';

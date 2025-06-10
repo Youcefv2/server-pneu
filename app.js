@@ -8,7 +8,7 @@
  * permettant de gérer les pneus d'un garage. Les données sont persistantes
  * grâce à une base de données MongoDB.
  *
- * NOUVELLE VERSION : Passage à puppeteer-core pour la compatibilité avec Render.
+ * NOUVELLE VERSION : Correction pour le déploiement sur Render avec puppeteer-core.
  *
  * Fonctionnalités :
  * - Connexion utilisateur.
@@ -32,12 +32,12 @@
 
 const express = require('express');
 const mongoose = require('mongoose');
-const puppeteer = require('puppeteer-core'); // MODIFIÉ: Utilisation de puppeteer-core
+const puppeteer = require('puppeteer-core'); // Utilisation de puppeteer-core
 const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3000; // Utiliser le port de Render
+const PORT = process.env.PORT || 3000;
 
 // --- Middlewares ---
 app.use(cors());
@@ -117,6 +117,15 @@ async function getEprelData(eprelCode) {
         console.log(`Scraping des données pour EPREL ${eprelCode} avec Puppeteer...`);
         const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
         
+        const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+        
+        // Log de débogage pour voir ce que Render fournit
+        console.log(`[Puppeteer] Chemin de l'exécutable détecté : ${executablePath}`);
+
+        if (!executablePath) {
+            throw new Error("PUPPETEER_EXECUTABLE_PATH n'est pas défini. Assurez-vous que le buildpack est correctement configuré et actif.");
+        }
+
         const launchOptions = {
             args: [
                 '--no-sandbox',
@@ -129,8 +138,7 @@ async function getEprelData(eprelCode) {
                 '--disable-gpu'
             ],
             headless: true,
-            // MODIFIÉ: Utilisation du chemin fourni par le buildpack de Render
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
+            executablePath: executablePath,
         };
 
         browser = await puppeteer.launch(launchOptions);

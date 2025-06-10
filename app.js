@@ -8,20 +8,13 @@
  * permettant de gérer les pneus d'un garage. Les données sont persistantes
  * grâce à une base de données MongoDB.
  *
- * NOUVELLE VERSION : Utilisation de @sparticuz/chrome-aws-lambda pour une compatibilité maximale avec Render.
+ * NOUVELLE VERSION : Correction du bug "is not a function" pour le déploiement sur Render.
  *
  * =============================================================================
- * INSTRUCTIONS DE DÉPLOIEMENT SUR RENDER (TRÈS IMPORTANT - À LIRE ATTENTIVEMENT)
+ * INSTRUCTIONS DE DÉPLOIEMENT SUR RENDER
  * =============================================================================
- * L'erreur "Error: Cannot find module '@sparticuz/chrome-aws-lambda'" signifie
- * que ce paquet n'est pas installé sur le serveur Render. Ceci est un problème
- * de configuration de votre environnement de déploiement.
- *
- * Action 1: Vérifiez votre fichier `package.json`
- * --------------------------------------------------
- * Assurez-vous que votre fichier `package.json` contient TOUTES les dépendances
- * suivantes. Copiez-collez cette section si nécessaire pour être sûr.
- *
+ * 1. Fichier `package.json` :
+ * Assurez-vous que les dépendances suivantes sont bien présentes :
  * "dependencies": {
  * "@sparticuz/chrome-aws-lambda": "^17.1.0",
  * "cors": "^2.8.5",
@@ -31,21 +24,13 @@
  * "puppeteer-core": "^17.1.0"
  * }
  *
- * (Les numéros de version peuvent être plus récents).
+ * 2. Commande de build sur Render :
+ * - Dans les "Settings" > "Build & Deploy", la "Build Command" doit être : `npm install`
  *
- * Action 2: Configurez la commande de build sur Render
- * --------------------------------------------------
- * - Allez dans les "Settings" de votre service sur Render.
- * - Trouvez la section "Build & Deploy".
- * - Assurez-vous que la "Build Command" est EXACTEMENT : `npm install`
+ * 3. Buildpacks :
+ * - Assurez-vous qu'aucun buildpack pour puppeteer n'est installé.
  *
- * Action 3: Supprimez les anciens Buildpacks (si présents)
- * --------------------------------------------------
- * - Dans les "Settings", vérifiez si vous avez des "Buildpacks".
- * - Si vous voyez un buildpack pour Puppeteer, supprimez-le.
- * Ce nouveau paquet `@sparticuz/chrome-aws-lambda` n'en a pas besoin.
- *
- * Après avoir vérifié ces 3 points, redéployez votre application sur Render.
+ * Après avoir vérifié ces points, redéployez votre application.
  */
 
 const express = require('express');
@@ -128,7 +113,7 @@ const authenticate = async (req, res, next) => {
     }
 };
 
-// --- Service de Scraping (MISE À JOUR POUR DÉPLOIEMENT) ---
+// --- Service de Scraping (MISE À JOUR) ---
 async function getEprelData(eprelCode) {
     if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
     let browser = null;
@@ -136,13 +121,11 @@ async function getEprelData(eprelCode) {
         console.log(`Scraping des données pour EPREL ${eprelCode} avec @sparticuz/chrome-aws-lambda...`);
         const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
         
-        const executablePath = await sparticuz.executablePath();
-        console.log(`[Puppeteer] Chemin de l'exécutable trouvé : ${executablePath}`);
-
+        // CORRIGÉ : Appel correct à la propriété executablePath
         browser = await puppeteer.launch({
             args: sparticuz.args,
             defaultViewport: sparticuz.defaultViewport,
-            executablePath: executablePath,
+            executablePath: await sparticuz.executablePath, // Pas de parenthèses ici
             headless: sparticuz.headless,
             ignoreHTTPSErrors: true,
         });

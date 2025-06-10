@@ -117,12 +117,87 @@ const authenticate = async (req, res, next) => {
 function getChromePath() {
     const baseDir = '/opt/render/.cache/puppeteer/chrome/';
     try {
+        if (!fs.existsSync(baseDir)) {
+            console.warn("Chrome base dir not found:", baseDir);
+            return null;
+        }
         const versions = fs.readdirSync(baseDir);
-        const latestVersion = versions.sort().pop(); // dernière version installée
-        return path.join(baseDir, latestVersion, 'chrome-linux64', 'chrome');
+        if (versions.length === 0) {
+            console.warn("No Chrome versions found in:", baseDir);
+            return null;
+        }
+        const latestVersion = versions.sort().pop();
+        const chromePath = path.join(baseDir, latestVersion, 'chrome-linux64', 'chrome');
+        if (!fs.existsSync(chromePath)) {
+            console.warn("Chrome binary not found at:", chromePath);
+            return null;
+        }
+        return chromePath;
     } catch (e) {
-        console.error("Impossible de détecter le chemin Chrome :", e);
+        console.error("Erreur pendant la détection de Chrome :", e);
         return null;
+    }
+}
+
+async function getEprelData(eprelCode) {
+    if (eprelDataCache[eprelCode]) return eprelDataCache[eprelCode];
+
+    const chromePath = getChromePath();
+    console.log("Chrome détecté :", chromePath);
+    if (!chromePath) {
+        console.error('Chrome introuvable. Impossible de scraper EPREL.');
+        return null;
+    }
+
+    let browser = null;
+    try {
+        console.log(`Scraping des données pour EPREL ${eprelCode}...`);
+        const url = `https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`;
+
+        browser = await puppeteer.launch({
+            headless: true,
+            executablePath: chromePath,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+
+        const page = await browser.newPage();
+        await page.goto(url, { waitUntil: 'networkidle0' });
+
+        const scrapedData = await page.evaluate(() => {
+            const boldSelector = '.ecl-u-type-bold.ecl-u-pl-l-xl.ecl-u-pr-2xs.ecl-u-type-align-right';
+            const marqueSelector = '.ecl-u-type-l.ecl-u-type-color-grey-75.ecl-u-type-family-alt';
+            const getText = (selector) => document.querySelector(selector)?.textContent.trim() || null;
+            const allBoldElements = document.querySelectorAll(boldSelector);
+            const allTexts = Array.from(allBoldElements, el => el.textContent.trim());
+            const dimension = allTexts.find(t => /\d+\/\d+\s*R\s*\d+/.test(t)) || null;
+            const nom = allTexts.find(t => t && !/\d+\/\d+\s*R\s*\d+/.test(t)) || null;
+            const marque = getText(marqueSelector);
+            return { dimension, nom, marque };
+        });
+
+        const { dimension: sizeString, nom: model, marque: brand } = scrapedData;
+        if (!brand || !sizeString) return null;
+
+        const sizeMatch = sizeString.match(/(\d+)\/(\d+)\s*R\s*(\d+)/);
+        if (!sizeMatch) return null;
+
+        const [, widthMm, aspectRatio, diameter] = sizeMatch;
+        const tireInfo = {
+            brand,
+            model: model || 'N/A',
+            width: parseFloat(widthMm) / 10,
+            aspectRatio: parseInt(aspectRatio, 10),
+            diameter: parseInt(diameter, 10),
+        };
+
+        eprelDataCache[eprelCode] = tireInfo;
+        return tireInfo;
+
+    } catch (error) {
+        console.error(`Erreur de scraping pour ${eprelCode}:`, error.message);
+        return null;
+    } finally {
+        if (browser) await browser.close();
     }
 }
 

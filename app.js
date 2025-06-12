@@ -116,11 +116,12 @@ async function getEprelData(eprelCode) {
   try {
     const executablePath = '/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome';
     console.log("➡️ Chemin forcé Chrome :", executablePath);
+    console.log('➡️ Chemin Chrome :', executablePath);
+    console.log('✅ Chrome existe :', fs.existsSync(executablePath));
 
-    browser = await puppeteer.launch({
-        headless: true,
-        executablePath,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     const page = await browser.newPage();
     await page.goto(`https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`, {

@@ -115,10 +115,6 @@ const authenticate = async (req, res, next) => {
 async function getEprelData(eprelCode) {
   let browser;
   try {
-    const executablePath = '/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome';
-    console.log("➡️ Chemin forcé Chrome :", executablePath);
-    console.log('➡️ Chemin Chrome :', executablePath);
-    console.log('✅ Chrome existe :', fs.existsSync(executablePath));
 
     browser = await puppeteer.launch({
       headless: true,

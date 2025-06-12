@@ -112,11 +112,11 @@ const authenticate = async (req, res, next) => {
 async function getEprelData(eprelCode) {
   let browser;
   try {
-
     browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
+
     const page = await browser.newPage();
     await page.goto(`https://eprel.ec.europa.eu/screen/product/tyres/${eprelCode}`, {
       waitUntil: 'networkidle0'
@@ -149,7 +149,6 @@ async function getEprelData(eprelCode) {
       diameter: parseInt(diameter, 10)
     };
 
-    eprelDataCache[eprelCode] = tireInfo;
     return tireInfo;
   } catch (error) {
     console.error(`❌ Erreur de scraping pour ${eprelCode}:`, error.message);
@@ -158,6 +157,7 @@ async function getEprelData(eprelCode) {
     if (browser) await browser.close();
   }
 }
+
 
 // --- Routes de l'API ---
 

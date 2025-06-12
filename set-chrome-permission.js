@@ -1,16 +1,14 @@
-// set-chrome-permission.js
-const { execSync } = require('child_process');
 const puppeteer = require('puppeteer');
+const fs = require('fs');
 
-(async () => {
+const getChromePath = () => {
   try {
     const path = puppeteer.executablePath();
-    if (!path) throw new Error("Chemin introuvable.");
-    console.log('➡️ Chemin Chrome détecté :', path);
-    execSync(`chmod +x "${path}"`);
-    console.log('✅ Permission ajoutée avec succès.');
+    if (fs.existsSync(path)) return path;
+    console.error('❌ Le chemin Chrome retourné n\'existe pas :', path);
+    return null;
   } catch (err) {
-    console.error('❌ Erreur chmod :', err.message);
-    process.exit(1);
+    console.error('❌ Erreur lors de la récupération du chemin Chrome :', err.message);
+    return null;
   }
-})();
+};

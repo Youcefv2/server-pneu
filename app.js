@@ -126,7 +126,9 @@ async function getEprelData(eprelCode) {
     const executablePath = getChromePath();
     console.log('➡️ Chemin forcé Chrome :', executablePath);
 
-    if (!executablePath) throw new Error('Chrome non trouvé');
+    if (!executablePath) {
+      throw new Error('Chrome non trouvé');
+    }
 
     browser = await puppeteer.launch({
       headless: true,

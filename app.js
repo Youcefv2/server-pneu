@@ -90,6 +90,17 @@ const Tire = mongoose.model('Tire', tireSchema);
 
 let eprelDataCache = {};
 
+const getChromePath = () => {
+  const basePath = '/opt/render/.cache/puppeteer/chrome';
+  if (!fs.existsSync(basePath)) return null;
+
+  const versions = fs.readdirSync(basePath);
+  if (versions.length === 0) return null;
+
+  const versionPath = `${basePath}/${versions[0]}/chrome-linux64/chrome`;
+  return fs.existsSync(versionPath) ? versionPath : null;
+};
+
 const authenticate = async (req, res, next) => {
   const token = req.headers.authorization;
   if (token === 'Bearer user1_token') {
@@ -112,8 +123,14 @@ const authenticate = async (req, res, next) => {
 async function getEprelData(eprelCode) {
   let browser;
   try {
+    const executablePath = getChromePath();
+    console.log('➡️ Chemin forcé Chrome :', executablePath);
+
+    if (!executablePath) throw new Error('Chrome non trouvé');
+
     browser = await puppeteer.launch({
       headless: true,
+      executablePath,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
@@ -141,15 +158,13 @@ async function getEprelData(eprelCode) {
     if (!sizeMatch) return null;
 
     const [, widthMm, aspectRatio, diameter] = sizeMatch;
-    const tireInfo = {
+    return {
       brand,
       model: model || 'N/A',
       width: parseFloat(widthMm) / 10,
       aspectRatio: parseInt(aspectRatio, 10),
       diameter: parseInt(diameter, 10)
     };
-
-    return tireInfo;
   } catch (error) {
     console.error(`❌ Erreur de scraping pour ${eprelCode}:`, error.message);
     return null;
@@ -157,6 +172,7 @@ async function getEprelData(eprelCode) {
     if (browser) await browser.close();
   }
 }
+
 
 
 // --- Routes de l'API ---

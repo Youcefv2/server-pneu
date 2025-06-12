@@ -120,7 +120,7 @@ async function getEprelData(eprelCode) {
     console.log('➡️ Chemin Chrome :', executablePath);
     console.log('✅ Chrome existe :', fs.existsSync(executablePath));
 
-    const browser = await puppeteer.launch({
+    browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });

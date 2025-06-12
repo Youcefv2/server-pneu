@@ -78,7 +78,8 @@ async function getEprelData(eprelCode) {
   let browser;
   try {
     browser = await puppeteer.launch({
-       headless: 'new',
+      executablePath: '/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome',
+      headless: 'new',
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',

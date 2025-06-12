@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const puppeteer = require('puppeteer-core');
+const puppeteerFull = require('puppeteer');
 const fs = require('fs');
 const cors = require('cors');
 
@@ -78,7 +79,7 @@ async function getEprelData(eprelCode) {
   let browser;
   try {
     browser = await puppeteer.launch({
-      executablePath: '/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome',
+      executablePath: puppeteerFull.executablePath(),
       headless: 'new',
       args: [
         '--no-sandbox',

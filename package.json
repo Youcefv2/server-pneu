@@ -4,7 +4,7 @@
   "main": "server.js",
 "scripts": {
   "start": "node server.js",
-  "postinstall": "npx puppeteer browsers install chrome && export CHROME=$(npx puppeteer executable-path) && chmod +x $CHROME"
+  "postinstall": "npx puppeteer browsers install chrome && node set-chrome-permission.js"
 },
   "dependencies": {
     "express": "^4.18.2",

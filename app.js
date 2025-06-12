@@ -3,7 +3,7 @@
  * Serveur pour l'Application de Gestion de Pneus de Garage avec MongoDB
  * =============================================================================
  *
- * Description :
+ * Description :.
  * Ce serveur utilise Node.js, Express, et Mongoose pour fournir une API REST
  * permettant de gérer les pneus d'un garage. Les données sont persistantes
  * grâce à une base de données MongoDB.

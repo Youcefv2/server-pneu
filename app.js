@@ -55,13 +55,6 @@ const Tire = mongoose.model('Tire', tireSchema);
 
 let eprelDataCache = {};
 
-const getChromePath = () => {
-  const path = puppeteer.executablePath();
-  console.log('➡️ Chemin forcé Chrome :', path);
-  return path;
-};
-
-
 const authenticate = async (req, res, next) => {
   const token = req.headers.authorization;
   if (token === 'Bearer user1_token') {
@@ -84,13 +77,6 @@ const authenticate = async (req, res, next) => {
 async function getEprelData(eprelCode) {
   let browser;
   try {
-    const executablePath = getChromePath();
-    console.log('➡️ Chemin forcé Chrome :', executablePath);
-
-    if (!executablePath) {
-      throw new Error('Chrome non trouvé');
-    }
-
     browser = await puppeteer.launch({
       headless: 'new',
       executablePath: '/usr/bin/chromium-browser',

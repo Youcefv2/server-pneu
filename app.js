@@ -91,15 +91,11 @@ const Tire = mongoose.model('Tire', tireSchema);
 let eprelDataCache = {};
 
 const getChromePath = () => {
-  const basePath = '/opt/render/.cache/puppeteer/chrome';
-  if (!fs.existsSync(basePath)) return null;
-
-  const versions = fs.readdirSync(basePath);
-  if (versions.length === 0) return null;
-
-  const versionPath = `${basePath}/${versions[0]}/chrome-linux64/chrome`;
-  return fs.existsSync(versionPath) ? versionPath : null;
+  const path = puppeteer.executablePath();
+  console.log('➡️ Chemin forcé Chrome :', path);
+  return path;
 };
+
 
 const authenticate = async (req, res, next) => {
   const token = req.headers.authorization;

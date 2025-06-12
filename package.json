@@ -4,7 +4,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "postinstall": "npx puppeteer browsers install chrome && node set-chrome-permission.js",
+    "postinstall": "node -e \"require('puppeteer-core').createBrowserFetcher().download('127.0.6533.88')\" && node set-chrome-permission.js",
     "build": "npm install && apt-get update && apt-get install -y chromium-browser"
   },
   "dependencies": {

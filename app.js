@@ -43,9 +43,6 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const getChromePath = () => {
-  return process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath();
-};
 
 app.use(cors());
 app.use(express.json());

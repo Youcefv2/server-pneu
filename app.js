@@ -1,38 +1,3 @@
-/*
- * =============================================================================
- * Serveur pour l'Application de Gestion de Pneus de Garage avec MongoDB
- * =============================================================================
- *
- * Description :.
- * Ce serveur utilise Node.js, Express, et Mongoose pour fournir une API REST
- * permettant de gérer les pneus d'un garage. Les données sont persistantes
- * grâce à une base de données MongoDB.
- *
- * NOUVELLE VERSION : Ajout de la possibilité de réserver un rack à une marque.
- *
- * Fonctionnalités :
- * - Connexion utilisateur.
- * - Gestion des Racks : Création (avec marque réservée optionnelle) et listage.
- * - Gestion des Pneus :
- * - Ajout d'une instance de pneu via son code EPREL.
- * - Scraping du site EPREL avec Puppeteer.
- * - Placement automatique qui respecte les réservations de marque.
- * - Recherche et suppression.
- *
- * Instructions pour démarrer :
- * 1. Assurez-vous d'avoir Node.js et MongoDB installés.
- * 2. Enregistrez ce fichier sous `server.js`.
- * 3. Dans le terminal, exécutez :
- * npm init -y
- * npm install express mongoose dotenv puppeteer cors
- * 4. Créez un fichier `.env` et ajoutez votre chaîne de connexion MongoDB :
- * MONGO_URI=mongodb://localhost:27017/garage-pneu
- * 5. Lancez le serveur avec :
- * node server.js
- *
- */
-
-// server.js
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
@@ -127,9 +92,16 @@ async function getEprelData(eprelCode) {
     }
 
     browser = await puppeteer.launch({
-      headless: true,
-      executablePath,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      headless: 'new',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu'
+  ]
     });
 
     const page = await browser.newPage();

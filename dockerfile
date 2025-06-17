@@ -1,33 +1,19 @@
 FROM node:20-slim
 
-# Install necessary dependencies
+# Dépendances minimales pour Chromium
 RUN apt-get update && apt-get install -y \
-    wget \
-    ca-certificates \
-    fonts-liberation \
-    libappindicator3-1 \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libcups2 \
-    libdbus-1-3 \
-    libdrm2 \
-    libgbm1 \
-    libnspr4 \
-    libnss3 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
-    xdg-utils \
     chromium \
+    fonts-liberation \
+    libasound2 libatk-bridge2.0-0 libx11-xcb1 libxcomposite1 libxdamage1 \
+    libxrandr2 libgbm1 libgtk-3-0 libnss3 libdrm2 libxfixes3 libatk1.0-0 \
  && rm -rf /var/lib/apt/lists/*
 
-# Set the environment variable so puppeteer knows where Chromium is
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV NODE_ENV=production
 
 WORKDIR /app
 COPY package.json ./
-RUN npm install
+RUN npm ci --omit=dev
 COPY . .
 
 EXPOSE 3000

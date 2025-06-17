@@ -8,4 +8,4 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 run npm ci
 COPY . .
-CMD ["node", "server.js"]
+CMD ["node", "app.js"]

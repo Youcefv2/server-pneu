@@ -131,6 +131,12 @@ async function getEprelData(eprelCode) {
 
 // --- Routes de l'API ---
 
+app.get("/", (req, res) =>{
+  res.send("Range ton pneu api");
+}); 
+  
+
+
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
     try {

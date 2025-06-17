@@ -75,8 +75,6 @@ const authenticate = async (req, res, next) => {
 };
 
 async function getEprelData(eprelCode) {
-  puppeteer.computeExecutablePath()
-  puppeteer.computeSystemExecutablePath()
   let browser;
   try {
     browser = await puppeteer.launch({
@@ -86,7 +84,7 @@ async function getEprelData(eprelCode) {
     '--single-process',
     '--no-zygote'
     ],
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
     headless: true
     });
 
